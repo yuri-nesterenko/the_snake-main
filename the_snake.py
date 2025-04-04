@@ -206,9 +206,6 @@ def handle_keys(snake: Snake) -> bool:
 def main():
     """Основная функция инициализации игры"""
     pygame.init()
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption('Змейка-камнеломка')
-    clock = pygame.time.Clock()
 
     stones = [Stone() for _ in range(20)]
     snake = Snake(stones)
