@@ -14,6 +14,18 @@ DOWN = (0, 1)
 LEFT = (-1, 0)
 RIGHT = (1, 0)
 
+# Словарь для навигации
+DIRECTION_MAPPING = {
+    (LEFT, pygame.K_UP): UP,
+    (LEFT, pygame.K_DOWN): DOWN,
+    (RIGHT, pygame.K_UP): UP,
+    (RIGHT, pygame.K_DOWN): DOWN,
+    (UP, pygame.K_LEFT): LEFT,
+    (UP, pygame.K_RIGHT): RIGHT,
+    (DOWN, pygame.K_LEFT): LEFT,
+    (DOWN, pygame.K_RIGHT): RIGHT,
+}
+
 # Цвет фона - черный:
 BOARD_BACKGROUND_COLOR = (0, 0, 0)
 
@@ -31,6 +43,9 @@ STONE_COLOR = (139, 69, 19)
 
 # Скорость движения змейки:
 SPEED = 15
+
+# Количество камней на поле:
+STONE_COUNT = 20
 
 # Настройка игрового окна:
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
@@ -54,7 +69,6 @@ class GameObject:
 
     def draw(self, surface: pygame.Surface):
         """Абстрактный метод для отрисовки объекта."""
-        pass
 
 
 class Apple(GameObject):
@@ -64,7 +78,7 @@ class Apple(GameObject):
         """Инициализирует яблоко со случайной позицией."""
         super().__init__()
         self.body_color = APPLE_COLOR
-        self.stones = stones if stones else []
+        self.stones = stones if stones is not None else []
         self.randomize_position()
 
     def randomize_position(self):
@@ -124,7 +138,7 @@ class Snake(GameObject):
         """Инициализирует змейку на стартовой позиции."""
         super().__init__()
         self.body_color = SNAKE_COLOR
-        self.stones = stones if stones else []
+        self.stones = stones if stones is not None else []
         self.reset()
         self.last = None
 
@@ -151,12 +165,6 @@ class Snake(GameObject):
         new_x = (head_x + dir_x * GRID_SIZE) % SCREEN_WIDTH
         new_y = (head_y + dir_y * GRID_SIZE) % SCREEN_HEIGHT
         new_position = (new_x, new_y)
-        if (
-            new_position in self.positions[:-1]
-            or any(new_position == stone.position for stone in self.stones)
-        ):
-            self.reset()
-            return False
 
         self.positions.insert(0, new_position)
         self.last = self.positions[-1]
@@ -176,7 +184,9 @@ class Snake(GameObject):
             pygame.draw.rect(surface, SNAKE_COLOR, rect)
             pygame.draw.rect(surface, BOARD_BACKGROUND_COLOR, rect, 1)
 
-        head_rect = pygame.Rect(self.positions[0], (GRID_SIZE, GRID_SIZE))
+        head_rect = pygame.Rect(
+            self.get_head_position(), (GRID_SIZE, GRID_SIZE)
+        )
         pygame.draw.rect(surface, SNAKE_COLOR, head_rect)
         pygame.draw.rect(surface, BOARD_BACKGROUND_COLOR, head_rect, 1)
 
@@ -192,14 +202,9 @@ def handle_keys(snake: Snake) -> bool:
             pygame.quit()
             return False
         elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_UP and snake.direction != DOWN:
-                snake.next_direction = UP
-            elif event.key == pygame.K_DOWN and snake.direction != UP:
-                snake.next_direction = DOWN
-            elif event.key == pygame.K_LEFT and snake.direction != RIGHT:
-                snake.next_direction = LEFT
-            elif event.key == pygame.K_RIGHT and snake.direction != LEFT:
-                snake.next_direction = RIGHT
+            new_dir = DIRECTION_MAPPING.get((snake.direction, event.key))
+            if new_dir is not None:
+                snake.next_direction = new_dir
     return True
 
 
@@ -207,7 +212,7 @@ def main():
     """Основная функция инициализации игры"""
     pygame.init()
 
-    stones = [Stone() for _ in range(20)]
+    stones = [Stone() for _ in range(STONE_COUNT)]
     snake = Snake(stones)
     apple = Apple(stones)
 
@@ -223,10 +228,25 @@ def main():
             break
 
         snake.update_direction()
-        if not snake.move():
+        snake.move()
+
+        head_pose = snake.get_head_position()
+        if (
+            head_pose in snake.positions[1:]
+            or any(head_pose == stone.position for stone in stones)
+        ):
+            pygame.time.delay(500)
+
+            stones = [Stone() for _ in range(STONE_COUNT)]
+            snake = Snake(stones)
+            apple = Apple(stones)
+
+            while any(apple.position == stone.position for stone in stones):
+                apple.randomize_position()
+
             continue
 
-        if snake.get_head_position() == apple.position:
+        if head_pose == apple.position:
             snake.length += 1
             apple.randomize_position()
             while (
