@@ -47,6 +47,9 @@ SPEED = 15
 # Количество камней на поле:
 STONE_COUNT = 20
 
+# Задержка времени перед запуском следующей игры
+TIME_DELAY = 500
+
 # Настройка игрового окна:
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
 
@@ -74,11 +77,14 @@ class GameObject:
 class Apple(GameObject):
     """Класс для съедобного яблока(бонус)"""
 
-    def __init__(self, stones: list = None):
+    def __init__(self, stones: list = None, snake_positions: list = None):
         """Инициализирует яблоко со случайной позицией."""
         super().__init__()
         self.body_color = APPLE_COLOR
         self.stones = stones if stones is not None else []
+        self.snake_positions = (
+            snake_positions if snake_positions is not None else []
+        )
         self.randomize_position()
 
     def randomize_position(self):
@@ -88,8 +94,9 @@ class Apple(GameObject):
                 randint(0, GRID_WIDTH - 1) * GRID_SIZE,
                 randint(0, GRID_HEIGHT - 1) * GRID_SIZE
             )
-            if not any(
-                self.position == stone.position for stone in self.stones
+            if not (
+                any(self.position == stone.position for stone in self.stones)
+                and (self.position not in self.snake_positions)
             ):
                 break
 
@@ -214,9 +221,12 @@ def main():
 
     stones = [Stone() for _ in range(STONE_COUNT)]
     snake = Snake(stones)
-    apple = Apple(stones)
+    apple = Apple(stones, snake.positions)
 
-    while any(apple.position == stone.position for stone in stones):
+    while (
+        any(apple.position == stone.position for stone in stones)
+        or (apple.position in snake.positions)
+    ):
         apple.randomize_position()
 
     running = True
@@ -235,18 +245,21 @@ def main():
             head_pose in snake.positions[1:]
             or any(head_pose == stone.position for stone in stones)
         ):
-            pygame.time.delay(500)
+            pygame.time.delay(TIME_DELAY)
 
             stones = [Stone() for _ in range(STONE_COUNT)]
             snake = Snake(stones)
-            apple = Apple(stones)
+            apple = Apple(stones, snake.positions)
 
-            while any(apple.position == stone.position for stone in stones):
+            while (
+                any(apple.position == stone.position for stone in stones)
+                or (apple.position in snake.positions)
+            ):
                 apple.randomize_position()
 
             continue
 
-        if head_pose == apple.position:
+        elif head_pose == apple.position:
             snake.length += 1
             apple.randomize_position()
             while (
